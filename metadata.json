@@ -1,0 +1,6 @@
+{
+  "name": "Arrows – Puzzle Escape",
+  "description": "Minimalist logic puzzle game where you plan moves and escape interconnected arrow paths without collisions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
