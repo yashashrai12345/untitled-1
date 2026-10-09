@@ -13,21 +13,19 @@ object CustomLevelRepository {
 
     fun initialize(context: Context) {
         val cached = CustomLevelCache.loadCustomLevels(context)
-        if (cached.isNotEmpty()) {
-            _customLevels.value = cached
-        }
+        _customLevels.value = cached
     }
 
     suspend fun syncRemoteCustomLevels(context: Context) {
         val remote = CustomLevelRemoteDataSource.fetchPublishedLevels()
-        if (remote.isNotEmpty()) {
-            _customLevels.value = remote
-            CustomLevelCache.saveCustomLevels(context, remote)
-        }
+        _customLevels.value = remote
+        CustomLevelCache.saveCustomLevels(context, remote)
     }
 
     fun getCustomLevel(levelId: Int): Level? {
-        return _customLevels.value.find { it.id == levelId }
+        val list = _customLevels.value
+        if (list.isEmpty() || levelId < 1 || levelId > list.size) return null
+        return list[levelId - 1].copy(id = levelId)
     }
 
     fun hasCustomLevels(): Boolean = _customLevels.value.isNotEmpty()

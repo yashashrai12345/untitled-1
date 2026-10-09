@@ -97,27 +97,17 @@ class ArrowsEngineUnitTest {
     )
 
     @Test
-    fun testPuzzleSolver_SolvesLevel1() {
-        val level1 = BuiltInLevels.levels.first()
+    fun testPuzzleSolver_SolvesFixtureLevel() {
+        val level1 = testFixtureLevel
         val result = PuzzleSolver.solvePuzzle(level1.arrows, level1.board)
 
-        assertTrue("Level 1 must be solvable", result.isSolvable)
+        assertTrue("Fixture level must be solvable", result.isSolvable)
         assertEquals("Solution sequence size must match arrow count", level1.arrows.size, result.solutionSequence.size)
-        assertTrue("Level 1 must have at least 7 arrows for starting challenge", level1.arrows.size >= 7)
-    }
-
-    @Test
-    fun testPuzzleSolver_AllBuiltInLevelsAreSolvable() {
-        for (level in BuiltInLevels.levels) {
-            val result = PuzzleSolver.solvePuzzle(level.arrows, level.board)
-            assertTrue("Built-in level ${level.id} (${level.name}) must be solvable. Result: ${result.isSolvable}", result.isSolvable)
-            assertEquals("Level ${level.id} solution length must match arrow count", level.arrows.size, result.solutionSequence.size)
-        }
     }
 
     @Test
     fun testHintEngine_SuggestsValidMove() {
-        val level1 = BuiltInLevels.levels.first()
+        val level1 = testFixtureLevel
         val hint = HintEngine.getNextHint(level1.arrows, level1.board)
 
         assertNotNull("Hint must not be null", hint.arrowId)

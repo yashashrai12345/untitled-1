@@ -12,7 +12,8 @@ data class Level(
     val parMoves: Int = arrows.size,
     val patternType: String = "CUSTOM",
     val seed: Long = 0L,
-    val difficultyScore: Float = 1.0f
+    val difficultyScore: Float = 1.0f,
+    val levelNumber: Int = id
 ) {
     init {
         require(arrows.isNotEmpty()) { "Level must contain at least one arrow" }

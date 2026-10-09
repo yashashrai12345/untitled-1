@@ -15,9 +15,9 @@ import java.net.URL
 object CustomLevelRemoteDataSource {
 
     /**
-     * Live Supabase REST Endpoint URL for published patterns.
+     * Endpoint URL for published patterns ordered by level_number ascending.
      */
-    var customLevelsApiUrl: String = "https://wgqxhfpoqgzydepzwkls.supabase.co/rest/v1/custom_patterns?status=eq.published&select=*"
+    var customLevelsApiUrl: String = "https://wgqxhfpoqgzydepzwkls.supabase.co/rest/v1/custom_patterns?status=eq.published&select=*&order=level_number.asc,published_at.asc"
     var supabaseApiKey: String? = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndncXhoZnBvcWd6eWRlcHp3a2xzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTE0MzIsImV4cCI6MjA3MjgwN30.0c3gxTdJ8Xkp1ZPBf64PWWBWfxz0t4-UFFhicHRKSQ"
 
     suspend fun fetchPublishedLevels(): List<Level> = withContext(Dispatchers.IO) {
@@ -40,10 +40,13 @@ object CustomLevelRemoteDataSource {
 
                 for (i in 0 until jsonArray.length()) {
                     val item = jsonArray.getJSONObject(i)
-                    val levelData = item.optJSONObject("level_data") ?: item
-                    val numericId = item.optInt("numeric_id", 1000 + i + 1)
+                    val status = item.optString("status", "published")
+                    if (status.lowercase() != "published") continue
 
-                    val parsedLevel = parseLevelFromJson(levelData, numericId)
+                    val levelData = item.optJSONObject("level_data") ?: item
+                    val levelNumber = item.optInt("level_number", i + 1)
+
+                    val parsedLevel = parseLevelFromJson(levelData, levelNumber, i + 1)
                     if (parsedLevel != null) {
                         levels.add(parsedLevel)
                     }
@@ -55,11 +58,9 @@ object CustomLevelRemoteDataSource {
         return@withContext levels
     }
 
-    fun parseLevelFromJson(json: JSONObject, fallbackNumericId: Int): Level? {
+    fun parseLevelFromJson(json: JSONObject, levelNumber: Int, displayIndex: Int): Level? {
         return try {
-            val rawId = json.optInt("id", fallbackNumericId)
-            val id = if (rawId < 1000) 1000 + rawId else rawId
-            val name = json.optString("name", "Custom Level $id")
+            val name = json.optString("name", "Level $displayIndex")
 
             val boardObj = json.getJSONObject("board")
             val width = boardObj.getInt("width")
@@ -96,15 +97,16 @@ object CustomLevelRemoteDataSource {
             val parMoves = json.optInt("parMoves", arrows.size)
 
             Level(
-                id = id,
+                id = displayIndex, // Always sequential 1..N display level number
                 name = name,
                 board = board,
                 arrows = arrows,
                 difficulty = difficulty,
                 parMoves = parMoves,
                 patternType = "CUSTOM",
-                seed = id.toLong(),
-                difficultyScore = difficulty * 1.0f
+                seed = displayIndex.toLong(),
+                difficultyScore = difficulty * 1.0f,
+                levelNumber = levelNumber
             )
         } catch (e: Exception) {
             null

@@ -6,6 +6,6 @@ import com.example.game.model.Level
 object BuiltInLevels {
 
     val levels: List<Level> by lazy {
-        (1..15).map { LevelRepository.getLevel(it) }
+        (1..15).mapNotNull { LevelRepository.getLevel(it) }
     }
 }

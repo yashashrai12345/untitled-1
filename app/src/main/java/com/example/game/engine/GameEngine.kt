@@ -4,10 +4,13 @@ import com.example.audio.SoundManager
 import com.example.data.persistence.GamePreferences
 import com.example.data.repository.LevelRepository
 import com.example.game.collision.CollisionDetector
+import com.example.game.model.Arrow
+import com.example.game.model.Board
 import com.example.game.model.EscapingArrow
 import com.example.game.model.GameState
 import com.example.game.model.GameStatus
 import com.example.game.model.Level
+import com.example.game.model.WrongMoveState
 import com.example.game.solver.HintEngine
 import com.example.haptics.HapticManager
 import kotlinx.coroutines.CoroutineScope
@@ -29,7 +32,7 @@ class GameEngine(
     private var sessionCounter = 1L
 
     private val _state = MutableStateFlow(
-        GameState(sessionId = sessionCounter++, level = LevelRepository.getLevel(preferences.currentLevel))
+        createInitialState(preferences.currentLevel)
     )
     val state: StateFlow<GameState> = _state.asStateFlow()
 
@@ -42,6 +45,42 @@ class GameEngine(
         loadLevel(preferences.currentLevel)
     }
 
+    private fun createInitialState(levelId: Int): GameState {
+        val total = LevelRepository.totalLevelsCount
+        val validId = if (total > 0) levelId.coerceIn(1, total) else 1
+        val level = LevelRepository.getLevel(validId) ?: createEmptyPlaceholderLevel()
+
+        return GameState(
+            sessionId = sessionCounter++,
+            level = level,
+            activeArrows = level.arrows,
+            removedArrowIds = emptySet(),
+            hearts = 3,
+            maxHearts = 3,
+            status = if (level.arrows.isEmpty()) GameStatus.PAUSED else GameStatus.PLAYING,
+            movesCount = 0,
+            escapingArrow = null,
+            wrongMoveArrow = null,
+            blockedArrowId = null,
+            hintArrowId = null
+        )
+    }
+
+    private fun createEmptyPlaceholderLevel(): Level {
+        return Level(
+            id = 1,
+            name = "No Levels Published Yet",
+            board = Board(6, 6),
+            arrows = listOf(
+                Arrow(
+                    id = "empty_placeholder",
+                    direction = com.example.game.model.Direction.RIGHT,
+                    points = listOf(com.example.game.model.GridPoint(1, 1), com.example.game.model.GridPoint(4, 1))
+                )
+            )
+        )
+    }
+
     /**
      * Loads a specific level and resets the play session.
      */
@@ -51,8 +90,11 @@ class GameEngine(
         blockedResetJob?.cancel()
         hintResetJob?.cancel()
 
-        val level = LevelRepository.getLevel(levelId)
-        preferences.currentLevel = levelId
+        val total = LevelRepository.totalLevelsCount
+        val validId = if (total > 0) levelId.coerceIn(1, total) else 1
+        val level = LevelRepository.getLevel(validId) ?: createEmptyPlaceholderLevel()
+
+        preferences.currentLevel = validId
 
         _state.value = GameState(
             sessionId = sessionCounter++,
@@ -61,7 +103,7 @@ class GameEngine(
             removedArrowIds = emptySet(),
             hearts = 3,
             maxHearts = 3,
-            status = GameStatus.PLAYING,
+            status = if (level.arrows.isEmpty()) GameStatus.PAUSED else GameStatus.PLAYING,
             movesCount = 0,
             escapingArrow = null,
             wrongMoveArrow = null,
@@ -78,10 +120,17 @@ class GameEngine(
     }
 
     /**
-     * Proceeds to the subsequent level.
+     * Proceeds to the subsequent level according to published level sequence.
      */
     fun nextLevel() {
-        val nextId = _state.value.level.id + 1
+        val total = LevelRepository.totalLevelsCount
+        if (total == 0) {
+            loadLevel(1)
+            return
+        }
+
+        val currentId = _state.value.level.id
+        val nextId = if (currentId < total) currentId + 1 else 1
         loadLevel(nextId)
     }
 
@@ -112,8 +161,7 @@ class GameEngine(
         }
     }
 
-    private fun handleArrowEscape(arrow: com.example.game.model.Arrow) {
-        // 1. Immediately update state so ArrowBoardView starts snake movement on the exact same frame
+    private fun handleArrowEscape(arrow: Arrow) {
         _state.update {
             it.copy(
                 escapingArrow = EscapingArrow(arrow = arrow, progress = 0f),
@@ -122,11 +170,9 @@ class GameEngine(
             )
         }
 
-        // 2. Play audio & haptics non-blockingly
         soundManager.playArrowEscape()
         hapticManager.vibrateSuccess()
 
-        // 3. Safety fallback job: auto-completes escape if UI animation callback was missed or in headless tests
         animationJob?.cancel()
         animationJob = scope.launch {
             delay(2000L)
@@ -143,16 +189,13 @@ class GameEngine(
         val current = _state.value
         val escaping = current.escapingArrow
         if (escaping == null || escaping.arrow.id != arrowId) {
-            // Already handled or not the current escaping arrow
             return
         }
 
-        // Arrow fully exited: remove from active set
         val remainingAfterRemoval = current.activeArrows.filter { it.id != arrowId }
         val removedIds = current.removedArrowIds + arrowId
 
         if (remainingAfterRemoval.isEmpty()) {
-            // Victory! Level Complete!
             val heartsRemaining = current.hearts
             val stars = heartsRemaining.coerceIn(1, 3)
             preferences.recordLevelCompletion(current.level.id, stars)
@@ -179,14 +222,14 @@ class GameEngine(
         }
     }
 
-    private fun handleArrowWrongMove(arrow: com.example.game.model.Arrow) {
+    private fun handleArrowWrongMove(arrow: Arrow) {
         val current = _state.value
         val collisionDist = CollisionDetector.calculateCollisionDistance(arrow, current.activeArrows, current.level.board)
         val blocker = CollisionDetector.findBlockingArrow(arrow, current.activeArrows, current.level.board)
 
         _state.update {
             it.copy(
-                wrongMoveArrow = com.example.game.model.WrongMoveState(
+                wrongMoveArrow = WrongMoveState(
                     arrow = arrow,
                     collisionDistance = collisionDist,
                     blockerArrowId = blocker?.id
@@ -196,7 +239,6 @@ class GameEngine(
             )
         }
 
-        // Safety fallback job for headless tests: triggers impact then completes return
         wrongMoveJob?.cancel()
         wrongMoveJob = scope.launch {
             delay(1200L)
@@ -218,7 +260,6 @@ class GameEngine(
         soundManager.playBlocked()
         hapticManager.vibrateBlocked()
 
-        // Deduct exactly 1 heart AT IMPACT
         val newHearts = (current.hearts - 1).coerceAtLeast(0)
 
         _state.update {
@@ -251,14 +292,6 @@ class GameEngine(
                 blockedArrowId = null,
                 status = if (isGameOver) GameStatus.LEVEL_FAILED else it.status
             )
-        }
-    }
-
-    private fun handleArrowBlocked(arrowId: String, timestamp: Long) {
-        // Kept for backward compatibility if invoked directly
-        val arrow = _state.value.activeArrows.find { it.id == arrowId }
-        if (arrow != null) {
-            handleArrowWrongMove(arrow)
         }
     }
 

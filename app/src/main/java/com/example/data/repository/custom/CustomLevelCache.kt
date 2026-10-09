@@ -1,10 +1,6 @@
 package com.example.data.repository.custom
 
 import android.content.Context
-import com.example.game.model.Arrow
-import com.example.game.model.Board
-import com.example.game.model.Direction
-import com.example.game.model.GridPoint
 import com.example.game.model.Level
 import org.json.JSONArray
 import org.json.JSONObject
@@ -20,6 +16,7 @@ object CustomLevelCache {
             for (level in levels) {
                 val lvlObj = JSONObject().apply {
                     put("id", level.id)
+                    put("level_number", level.levelNumber)
                     put("name", level.name)
                     put("difficulty", level.difficulty)
                     put("parMoves", level.parMoves)
@@ -68,7 +65,8 @@ object CustomLevelCache {
 
             for (i in 0 until jsonArray.length()) {
                 val json = jsonArray.getJSONObject(i)
-                val parsed = CustomLevelRemoteDataSource.parseLevelFromJson(json, 1001 + i)
+                val lvlNum = json.optInt("level_number", i + 1)
+                val parsed = CustomLevelRemoteDataSource.parseLevelFromJson(json, lvlNum, i + 1)
                 if (parsed != null) {
                     levels.add(parsed)
                 }

@@ -1,11 +1,7 @@
 package com.example.data.repository
 
 import com.example.data.repository.custom.CustomLevelRepository
-import com.example.game.generator.LevelGenerator
-import com.example.game.generator.pattern.HandcraftedLevelLibrary
-import com.example.game.model.Board
 import com.example.game.model.Level
-import com.example.game.validation.LevelOverlapValidator
 
 data class LevelSummary(
     val id: Int,
@@ -16,63 +12,40 @@ data class LevelSummary(
 
 object LevelRepository {
 
-    private val levelCache = mutableMapOf<Int, Level>()
-
+    /**
+     * Total count of published custom levels from Admin Panel.
+     */
     val totalLevelsCount: Int
-        get() {
-            val customCount = CustomLevelRepository.customLevels.value.size
-            return if (customCount > 0) customCount else 100
-        }
+        get() = CustomLevelRepository.customLevels.value.size
 
     /**
-     * Retrieves level by [levelId].
-     * If published custom levels exist from Admin Panel, custom level 1 maps to Level 1,
-     * custom level 2 maps to Level 2, etc.
+     * Retrieves level by [levelId] (1-based index 1..totalLevelsCount).
+     * Returns null if no published custom levels exist or if levelId is out of bounds.
      */
-    fun getLevel(levelId: Int): Level {
-        val validId = levelId.coerceAtLeast(1)
-
+    fun getLevel(levelId: Int): Level? {
         val customList = CustomLevelRepository.customLevels.value
-        if (customList.isNotEmpty()) {
-            val customIdx = (validId - 1).coerceIn(0, customList.size - 1)
-            val customLvl = customList[customIdx]
-            return customLvl.copy(id = validId)
-        }
+        if (customList.isEmpty()) return null
 
-        levelCache[validId]?.let { return it }
-
-        // Fallback generator if no custom levels are published yet
-        val level = LevelGenerator.generateLevel(validId)
-        val validation = LevelOverlapValidator.validateLevel(level)
-        val verified = if (validation.isValid) {
-            level
-        } else {
-            HandcraftedLevelLibrary.getLevel(1)?.copy(id = validId, name = "Level $validId")
-                ?: Level(
-                    id = validId,
-                    name = "Level $validId",
-                    board = Board(6, 6),
-                    arrows = emptyList()
-                )
-        }
-
-        levelCache[validId] = verified
-        return verified
+        val validId = levelId.coerceIn(1, customList.size)
+        val customLvl = customList[validId - 1]
+        return customLvl.copy(id = validId, name = customLvl.name.ifEmpty { "Level $validId" })
     }
 
     /**
-     * Returns a summary list of all available levels.
+     * Returns a summary list of all available published levels.
      */
     fun getLevelSummaries(): List<LevelSummary> {
         val total = totalLevelsCount
-        return (1..total).map { id ->
+        return (1..total).mapNotNull { id ->
             val lvl = getLevel(id)
-            LevelSummary(
-                id = id,
-                name = lvl.name,
-                difficulty = lvl.difficulty,
-                arrowCount = lvl.arrows.size
-            )
+            if (lvl != null) {
+                LevelSummary(
+                    id = id,
+                    name = lvl.name,
+                    difficulty = lvl.difficulty,
+                    arrowCount = lvl.arrows.size
+                )
+            } else null
         }
     }
 }
