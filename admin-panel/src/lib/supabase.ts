@@ -1,7 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-import { CustomPatternRecord, Level } from '../types/game';
+import { createClient, RealtimeChannel } from '@supabase/supabase-js';
+import { CustomPatternRecord } from '../types/game';
 
-// Standard Supabase browser credentials (safe anon key)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -32,6 +31,26 @@ export async function fetchPublishedPatterns(): Promise<CustomPatternRecord[]> {
   }
 
   return data as CustomPatternRecord[];
+}
+
+export function subscribeToRealtimePatterns(
+  onUpdate: (patterns: CustomPatternRecord[]) => void
+): RealtimeChannel | null {
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+
+  const channel = supabase
+    .channel('custom_patterns_realtime')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'custom_patterns' },
+      async () => {
+        const latest = await fetchPublishedPatterns();
+        onUpdate(latest);
+      }
+    )
+    .subscribe();
+
+  return channel;
 }
 
 export async function publishPatternViaApi(
