@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CustomPatternRecord } from '../types/game';
-import { Edit3, Trash2, CheckCircle2, FileText, Send, Layers, Hash } from 'lucide-react';
-import { deletePatternViaApi } from '../lib/supabase';
+import { Edit3, Trash2, CheckCircle2, FileText, Send, Layers, Hash, ArrowUp, ArrowDown, Save, Move } from 'lucide-react';
+import { deletePatternViaApi, reorderPatternsViaApi } from '../lib/supabase';
 
 interface PatternListModalProps {
   patterns: CustomPatternRecord[];
@@ -19,14 +19,60 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
   onPublishPattern,
 }) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [orderedItems, setOrderedItems] = useState<CustomPatternRecord[]>([]);
+  const [isReordering, setIsReordering] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
-  const filtered = [...patterns]
-    .filter((p) => {
-      if (filterStatus === 'draft') return p.status === 'draft';
-      if (filterStatus === 'published') return p.status === 'published';
-      return true;
-    })
-    .sort((a, b) => (a.level_number || 1) - (b.level_number || 1));
+  useEffect(() => {
+    const list = [...patterns]
+      .filter((p) => {
+        if (filterStatus === 'draft') return p.status === 'draft';
+        if (filterStatus === 'published') return p.status === 'published';
+        return true;
+      })
+      .sort((a, b) => (a.level_number || 1) - (b.level_number || 1));
+
+    setOrderedItems(list);
+  }, [patterns, filterStatus]);
+
+  const handleMove = (index: number, direction: 'up' | 'down') => {
+    const newIdx = direction === 'up' ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= orderedItems.length) return;
+
+    const list = [...orderedItems];
+    const temp = list[index];
+    list[index] = list[newIdx];
+    list[newIdx] = temp;
+
+    // Re-assign level numbers sequentially (Level 1, Level 2, Level 3...)
+    const updatedList = list.map((item, idx) => ({
+      ...item,
+      level_number: idx + 1,
+    }));
+
+    setOrderedItems(updatedList);
+    setIsReordering(true);
+  };
+
+  const handleSaveOrder = async () => {
+    setIsSavingOrder(true);
+    const secret = prompt('Enter ADMIN_PUBLISH_SECRET to confirm level order (leave empty if unconfigured):') || '';
+
+    const payload = orderedItems.map((item, idx) => ({
+      id: item.id,
+      level_number: idx + 1,
+    }));
+
+    const result = await reorderPatternsViaApi(payload, secret);
+    setIsSavingOrder(false);
+
+    if (result.success) {
+      alert('Level progression order saved successfully! App will load levels in this exact sequence.');
+      setIsReordering(false);
+    } else {
+      alert(result.message || 'Failed to save level order.');
+    }
+  };
 
   const handleDelete = async (item: CustomPatternRecord) => {
     if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
@@ -58,22 +104,36 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
               <span>Pattern Library & Level Progression</span>
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Manage and arrange custom puzzle patterns according to their level order position.
+              Arrange your custom puzzle patterns level-wise (Level 1, Level 2, Level 3...).
             </p>
           </div>
-          <span className="text-xs bg-slate-800 text-slate-300 font-mono px-3 py-1 rounded-full border border-slate-700">
-            {filtered.length} {filterStatus} patterns
-          </span>
+
+          <div className="flex items-center space-x-3">
+            {isReordering && (
+              <button
+                onClick={handleSaveOrder}
+                disabled={isSavingOrder}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-lg shadow-emerald-600/20"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSavingOrder ? 'Saving Order...' : 'Save Level Order'}</span>
+              </button>
+            )}
+
+            <span className="text-xs bg-slate-800 text-slate-300 font-mono px-3 py-1.5 rounded-full border border-slate-700">
+              {orderedItems.length} {filterStatus} patterns
+            </span>
+          </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {orderedItems.length === 0 ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 space-y-3">
             <p className="text-sm font-semibold text-slate-400">No patterns found in this view</p>
             <p className="text-xs">Create a new pattern using the sidebar to get started!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((item, index) => (
+            {orderedItems.map((item, index) => (
               <div
                 key={item.id}
                 className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-5 space-y-4 transition-all hover:shadow-xl relative flex flex-col justify-between"
@@ -83,22 +143,30 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
                     <div className="flex items-center space-x-2">
                       <span className="bg-indigo-600/30 text-indigo-300 text-xs font-mono font-bold px-2 py-0.5 rounded border border-indigo-500/30 flex items-center space-x-1">
                         <Hash className="w-3 h-3" />
-                        <span>Lvl {item.level_number || index + 1}</span>
+                        <span>Level {item.level_number || index + 1}</span>
                       </span>
-                      <h3 className="font-bold text-white text-base truncate max-w-[140px]">{item.name}</h3>
+                      <h3 className="font-bold text-white text-base truncate max-w-[130px]">{item.name}</h3>
                     </div>
 
-                    {item.status === 'published' ? (
-                      <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1 border border-emerald-500/30">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Published</span>
-                      </span>
-                    ) : (
-                      <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1 border border-amber-500/30">
-                        <FileText className="w-3 h-3" />
-                        <span>Draft</span>
-                      </span>
-                    )}
+                    {/* Order Move Up / Move Down Buttons */}
+                    <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                      <button
+                        onClick={() => handleMove(index, 'up')}
+                        disabled={index === 0}
+                        className="p-1 hover:bg-slate-800 disabled:opacity-20 rounded text-slate-400 hover:text-white"
+                        title="Move Level Up"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleMove(index, 'down')}
+                        disabled={index === orderedItems.length - 1}
+                        className="p-1 hover:bg-slate-800 disabled:opacity-20 rounded text-slate-400 hover:text-white"
+                        title="Move Level Down"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-400 line-clamp-2 min-h-[2rem]">

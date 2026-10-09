@@ -10,7 +10,6 @@ const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   : null;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -36,45 +35,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ success: false, message: 'Database client not connected' });
   }
 
-  const { id, name, description, width, height, level_data, difficulty, status, level_number } = req.body || {};
+  // Expects items: [{ id: string, level_number: number }]
+  const { items } = req.body || {};
 
-  if (!level_data || !level_data.arrows || level_data.arrows.length === 0) {
-    return res.status(400).json({ success: false, message: 'Invalid pattern: level_data contains no arrows' });
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, message: 'Array of items with id and level_number required' });
   }
 
   try {
-    const payload: any = {
-      name: name || level_data.name || 'Untitled Pattern',
-      description: description || '',
-      width: width || level_data.board?.width || 8,
-      height: height || level_data.board?.height || 8,
-      level_data: level_data,
-      difficulty: difficulty || level_data.difficulty || 2,
-      status: status || 'published',
-      level_number: typeof level_number === 'number' ? level_number : (level_data.level_number || 1),
-      version: 1,
-      published_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // Include ID if provided (for updating an existing record)
-    if (id) {
-      payload.id = id;
-    }
-
-    const { data, error } = await supabase
-      .from('custom_patterns')
-      .upsert(payload)
-      .select();
-
-    if (error) {
-      return res.status(500).json({ success: false, message: error.message });
+    for (const item of items) {
+      if (item.id && typeof item.level_number === 'number') {
+        await supabase
+          .from('custom_patterns')
+          .update({
+            level_number: item.level_number,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', item.id);
+      }
     }
 
     return res.status(200).json({
       success: true,
-      data: data ? data[0] : null,
-      message: 'Pattern published successfully',
+      message: 'Level order updated successfully',
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });

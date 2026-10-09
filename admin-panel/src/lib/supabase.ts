@@ -91,11 +91,38 @@ export async function deletePatternViaApi(
     const result = await response.json();
     return result;
   } catch (err: any) {
-    // Fallback to direct client delete if configured
     if (supabaseUrl && supabaseAnonKey) {
       const { error } = await supabase.from('custom_patterns').delete().eq('id', id);
       if (!error) return { success: true };
     }
     return { success: false, message: err.message || 'Failed to delete pattern' };
+  }
+}
+
+export async function reorderPatternsViaApi(
+  items: Array<{ id: string; level_number: number }>,
+  publishSecret: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const response = await fetch('/api/reorder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': publishSecret,
+      },
+      body: JSON.stringify({ items }),
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (err: any) {
+    // Direct client fallback
+    if (supabaseUrl && supabaseAnonKey) {
+      for (const item of items) {
+        await supabase.from('custom_patterns').update({ level_number: item.level_number }).eq('id', item.id);
+      }
+      return { success: true };
+    }
+    return { success: false, message: err.message || 'Failed to reorder patterns' };
   }
 }
