@@ -61,7 +61,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     var soundEnabled by remember { mutableStateOf(preferences.isSoundEnabled) }
-    var musicEnabled by remember { mutableStateOf(preferences.isMusicEnabled) }
     var hapticsEnabled by remember { mutableStateOf(preferences.isHapticsEnabled) }
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -133,21 +132,6 @@ fun SettingsScreen(
                             soundEnabled = it
                             preferences.isSoundEnabled = it
                             if (it) soundManager.playTap()
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Ambient Music
-                    SettingsToggleRow(
-                        title = "Ambient Music",
-                        subtitle = "Calming meditative drone loops",
-                        checked = musicEnabled,
-                        testTag = "toggle_music",
-                        onCheckedChange = {
-                            musicEnabled = it
-                            preferences.isMusicEnabled = it
-                            soundManager.updateMusicState()
                         }
                     )
 

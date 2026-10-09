@@ -6,9 +6,7 @@ import android.media.AudioTrack
 import com.example.data.persistence.GamePreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.sin
 
@@ -16,7 +14,7 @@ class SoundManager(private val preferences: GamePreferences) {
 
     private val sampleRate = 44100
     private val scope = CoroutineScope(Dispatchers.Default)
-    private var musicJob: Job? = null
+
 
     companion object {
         @Volatile
@@ -106,41 +104,6 @@ class SoundManager(private val preferences: GamePreferences) {
         playTap()
     }
 
-    /**
-     * Ambient soothing background chords (Cmaj7 -> Fmaj7 soft pads).
-     */
-    fun updateMusicState() {
-        if (preferences.isMusicEnabled) {
-            startAmbientMusic()
-        } else {
-            stopAmbientMusic()
-        }
-    }
-
-    private fun startAmbientMusic() {
-        if (musicJob?.isActive == true) return
-        musicJob = scope.launch {
-            val chords = listOf(
-                listOf(261.63, 329.63, 392.0, 493.88), // Cmaj7
-                listOf(220.0, 261.63, 329.63, 392.0),  // Am7
-                listOf(174.61, 220.0, 261.63, 329.63), // Fmaj7
-                listOf(196.0, 246.94, 293.66, 392.0)   // G6
-            )
-            var index = 0
-            while (isActive && preferences.isMusicEnabled) {
-                val freqs = chords[index % chords.size]
-                val chordSamples = generateChord(freqs, durationMs = 2800, volume = 0.08)
-                playPcm(chordSamples)
-                delay(200)
-                index++
-            }
-        }
-    }
-
-    private fun stopAmbientMusic() {
-        musicJob?.cancel()
-        musicJob = null
-    }
 
     private fun generateTone(
         freq: Double,
@@ -173,34 +136,6 @@ class SoundManager(private val preferences: GamePreferences) {
         return buffer
     }
 
-    private fun generateChord(freqs: List<Double>, durationMs: Int, volume: Double): ShortArray {
-        val totalSamples = (sampleRate * durationMs) / 1000
-        val attackSamples = (sampleRate * 400) / 1000
-        val decaySamples = (sampleRate * 600) / 1000
-        val sustainSamples = (totalSamples - attackSamples - decaySamples).coerceAtLeast(0)
-
-        val buffer = ShortArray(totalSamples)
-        val numNotes = freqs.size
-
-        for (i in 0 until totalSamples) {
-            val t = i.toDouble() / sampleRate
-            val envelope = when {
-                i < attackSamples -> i.toDouble() / attackSamples
-                i < attackSamples + sustainSamples -> 1.0
-                else -> {
-                    val decayStep = i - (attackSamples + sustainSamples)
-                    (1.0 - (decayStep.toDouble() / decaySamples)).coerceAtLeast(0.0)
-                }
-            }
-            var sum = 0.0
-            for (f in freqs) {
-                sum += sin(2.0 * Math.PI * f * t)
-            }
-            val sample = (sum / numNotes) * envelope * volume * Short.MAX_VALUE
-            buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-        }
-        return buffer
-    }
 
     private fun generateSawBuzz(freq: Double, durationMs: Int): ShortArray {
         val totalSamples = (sampleRate * durationMs) / 1000

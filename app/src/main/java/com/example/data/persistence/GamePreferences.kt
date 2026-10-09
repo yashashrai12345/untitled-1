@@ -12,7 +12,6 @@ class GamePreferences(context: Context) {
         private const val KEY_CURRENT_LEVEL = "key_current_level"
         private const val KEY_HIGHEST_UNLOCKED = "key_highest_unlocked"
         private const val KEY_SOUND_ENABLED = "key_sound_enabled"
-        private const val KEY_MUSIC_ENABLED = "key_music_enabled"
         private const val KEY_HAPTICS_ENABLED = "key_haptics_enabled"
         private const val KEY_HINTS_COUNT = "key_hints_count"
         private const val KEY_TOTAL_MOVES = "key_total_moves"
@@ -41,9 +40,6 @@ class GamePreferences(context: Context) {
         get() = prefs.getBoolean(KEY_SOUND_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_SOUND_ENABLED, value).apply()
 
-    var isMusicEnabled: Boolean
-        get() = prefs.getBoolean(KEY_MUSIC_ENABLED, false)
-        set(value) = prefs.edit().putBoolean(KEY_MUSIC_ENABLED, value).apply()
 
     var isHapticsEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTICS_ENABLED, true)
