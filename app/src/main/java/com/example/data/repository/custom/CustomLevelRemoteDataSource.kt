@@ -15,12 +15,10 @@ import java.net.URL
 object CustomLevelRemoteDataSource {
 
     /**
-     * Endpoint URL for published patterns.
-     * Can point to your free Vercel deployment (e.g. "https://your-app.vercel.app/api/public/patterns")
-     * or directly to your Supabase REST endpoint.
+     * Live Supabase REST Endpoint URL for published patterns.
      */
-    var customLevelsApiUrl: String = "https://your-app.vercel.app/api/public/patterns"
-    var supabaseApiKey: String? = null
+    var customLevelsApiUrl: String = "https://wgqxhfpoqgzydepzwkls.supabase.co/rest/v1/custom_patterns?status=eq.published&select=*"
+    var supabaseApiKey: String? = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndncXhoZnBvcWd6eWRlcHp3a2xzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTE0MzIsImV4cCI6MjA3MjgwN30.0c3gxTdJ8Xkp1ZPBf64PWWBWfxz0t4-UFFhicHRKSQ"
 
     suspend fun fetchPublishedLevels(): List<Level> = withContext(Dispatchers.IO) {
         val levels = mutableListOf<Level>()
@@ -52,7 +50,7 @@ object CustomLevelRemoteDataSource {
                 }
             }
         } catch (e: Exception) {
-            // Offline or unreachable
+            // Offline or network error
         }
         return@withContext levels
     }
