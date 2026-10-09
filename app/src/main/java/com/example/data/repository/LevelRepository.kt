@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import com.example.data.repository.custom.CustomLevelRepository
 import com.example.game.generator.LevelGenerator
 import com.example.game.generator.pattern.HandcraftedLevelLibrary
 import com.example.game.model.Level
@@ -22,8 +23,16 @@ object LevelRepository {
      * Retrieves a guaranteed solvable, non-overlapping level by [levelId].
      * Puzzles 1..35 are drawn from the handcrafted pattern library.
      * Puzzles 36..100+ are generated via the procedural template library.
+     * Puzzles 1000+ are downloaded/cached custom levels published via Admin Panel.
      */
     fun getLevel(levelId: Int): Level {
+        if (levelId >= 1000) {
+            val custom = CustomLevelRepository.getCustomLevel(levelId)
+            if (custom != null) {
+                return custom
+            }
+        }
+
         val validId = levelId.coerceAtLeast(1)
         levelCache[validId]?.let { return it }
 
