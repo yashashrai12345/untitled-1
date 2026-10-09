@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Arrow, Board, CustomPatternRecord, Level, ValidationResult, SolveResult } from './types/game';
 import { LevelValidator } from './engine/LevelValidator';
 import { PuzzleSolver } from './engine/PuzzleSolver';
@@ -11,30 +11,18 @@ import { PlaytestOverlay } from './components/PlaytestOverlay';
 import { PublishModal } from './components/PublishModal';
 import { PatternListModal } from './components/PatternListModal';
 import { fetchPublishedPatterns, subscribeToRealtimePatterns } from './lib/supabase';
-import { BUILT_IN_CAMPAIGN_LEVELS } from './lib/builtInLevels';
 
 const INITIAL_BOARD: Board = { width: 8, height: 8 };
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('editor');
-  const [patternName, setPatternName] = useState('New Custom Pattern');
+  const [patternName, setPatternName] = useState('Level 1');
   const [description, setDescription] = useState('');
   const [difficulty, setDifficulty] = useState(2);
   const [board, setBoard] = useState<Board>(INITIAL_BOARD);
-  const [arrows, setArrows] = useState<Arrow[]>([
-    {
-      id: 'arrow_sample_1',
-      direction: 'RIGHT',
-      points: [{ x: 1, y: 1 }, { x: 6, y: 1 }],
-    },
-    {
-      id: 'arrow_sample_2',
-      direction: 'DOWN',
-      points: [{ x: 6, y: 2 }, { x: 6, y: 6 }],
-    },
-  ]);
+  const [arrows, setArrows] = useState<Arrow[]>([]);
 
-  const [selectedArrowId, setSelectedArrowId] = useState<string | null>('arrow_sample_1');
+  const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1.0);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [isPlaytesting, setIsPlaytesting] = useState(false);
@@ -44,34 +32,10 @@ export const App: React.FC = () => {
   const [history, setHistory] = useState<Arrow[][]>([]);
   const [redoStack, setRedoStack] = useState<Arrow[][]>([]);
 
-  // Local Drafts & Remote Published Patterns
+  // Local Drafts (Starts completely clean with 0 drafts)
   const [savedDrafts, setSavedDrafts] = useState<CustomPatternRecord[]>(() => {
     const local = localStorage.getItem('arrows_admin_drafts');
-    const existingDrafts: CustomPatternRecord[] = local ? JSON.parse(local) : [];
-
-    // Pre-populate built-in campaign levels as selectable draft templates
-    const campaignDrafts: CustomPatternRecord[] = BUILT_IN_CAMPAIGN_LEVELS.map((lvl) => ({
-      id: `campaign_${lvl.id}`,
-      name: lvl.name,
-      description: `Original Campaign ${lvl.name}`,
-      width: lvl.board.width,
-      height: lvl.board.height,
-      level_data: lvl,
-      difficulty: lvl.difficulty,
-      status: 'draft',
-      version: 1,
-      updated_at: new Date().toISOString(),
-    }));
-
-    // Merge without duplicates
-    const merged = [...existingDrafts];
-    campaignDrafts.forEach((cd) => {
-      if (!merged.some((m) => m.id === cd.id || m.name === cd.name)) {
-        merged.push(cd);
-      }
-    });
-
-    return merged;
+    return local ? JSON.parse(local) : [];
   });
 
   const [publishedPatterns, setPublishedPatterns] = useState<CustomPatternRecord[]>([]);
@@ -79,7 +43,7 @@ export const App: React.FC = () => {
   // Fetch live published patterns from Supabase on load & subscribe to Realtime updates!
   useEffect(() => {
     fetchPublishedPatterns().then((data) => {
-      if (data && data.length > 0) {
+      if (data) {
         setPublishedPatterns(data);
       }
     });
@@ -112,8 +76,9 @@ export const App: React.FC = () => {
       patternType: 'CUSTOM',
       seed: Date.now(),
       difficultyScore: difficulty * 1.0,
+      level_number: publishedPatterns.length + 1,
     }),
-    [patternName, board, arrows, difficulty]
+    [patternName, board, arrows, difficulty, publishedPatterns.length]
   );
 
   // Live Validation & Solvability Engine
@@ -174,7 +139,8 @@ export const App: React.FC = () => {
   };
 
   const handleNewPattern = () => {
-    setPatternName('New Custom Pattern');
+    const nextLvlNum = publishedPatterns.length + 1;
+    setPatternName(`Level ${nextLvlNum}`);
     setDescription('');
     setDifficulty(2);
     setBoard(INITIAL_BOARD);
@@ -349,6 +315,7 @@ export const App: React.FC = () => {
             }}
             onDeletePattern={(id) => {
               setSavedDrafts((prev) => prev.filter((d) => d.id !== id));
+              setPublishedPatterns((prev) => prev.filter((p) => p.id !== id));
             }}
             onPublishPattern={(pattern) => {
               setIsPublishModalOpen(true);
@@ -364,6 +331,7 @@ export const App: React.FC = () => {
         level={currentLevel}
         description={description}
         difficulty={difficulty}
+        defaultLevelNumber={publishedPatterns.length + 1}
         onPublishedSuccess={() => {
           fetchPublishedPatterns().then((data) => {
             if (data) setPublishedPatterns(data);

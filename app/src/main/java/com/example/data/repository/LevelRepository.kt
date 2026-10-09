@@ -3,6 +3,7 @@ package com.example.data.repository
 import com.example.data.repository.custom.CustomLevelRepository
 import com.example.game.generator.LevelGenerator
 import com.example.game.generator.pattern.HandcraftedLevelLibrary
+import com.example.game.model.Board
 import com.example.game.model.Level
 import com.example.game.validation.LevelOverlapValidator
 
@@ -15,35 +16,44 @@ data class LevelSummary(
 
 object LevelRepository {
 
-    const val TOTAL_LEVELS = 100
-
     private val levelCache = mutableMapOf<Int, Level>()
 
-    /**
-     * Retrieves a guaranteed solvable, non-overlapping level by [levelId].
-     * Puzzles 1..35 are drawn from the handcrafted pattern library.
-     * Puzzles 36..100+ are generated via the procedural template library.
-     * Puzzles 1000+ are downloaded/cached custom levels published via Admin Panel.
-     */
-    fun getLevel(levelId: Int): Level {
-        if (levelId >= 1000) {
-            val custom = CustomLevelRepository.getCustomLevel(levelId)
-            if (custom != null) {
-                return custom
-            }
+    val totalLevelsCount: Int
+        get() {
+            val customCount = CustomLevelRepository.customLevels.value.size
+            return if (customCount > 0) customCount else 100
         }
 
+    /**
+     * Retrieves level by [levelId].
+     * If published custom levels exist from Admin Panel, custom level 1 maps to Level 1,
+     * custom level 2 maps to Level 2, etc.
+     */
+    fun getLevel(levelId: Int): Level {
         val validId = levelId.coerceAtLeast(1)
+
+        val customList = CustomLevelRepository.customLevels.value
+        if (customList.isNotEmpty()) {
+            val customIdx = (validId - 1).coerceIn(0, customList.size - 1)
+            val customLvl = customList[customIdx]
+            return customLvl.copy(id = validId)
+        }
+
         levelCache[validId]?.let { return it }
 
-        // Load level via generator (which prioritizes HandcraftedLevelLibrary for 1..35)
+        // Fallback generator if no custom levels are published yet
         val level = LevelGenerator.generateLevel(validId)
         val validation = LevelOverlapValidator.validateLevel(level)
         val verified = if (validation.isValid) {
             level
         } else {
-            // Safe fallback to Level 1
-            HandcraftedLevelLibrary.getLevel(1)!!.copy(id = validId, name = "Level $validId")
+            HandcraftedLevelLibrary.getLevel(1)?.copy(id = validId, name = "Level $validId")
+                ?: Level(
+                    id = validId,
+                    name = "Level $validId",
+                    board = Board(6, 6),
+                    arrows = emptyList()
+                )
         }
 
         levelCache[validId] = verified
@@ -51,10 +61,11 @@ object LevelRepository {
     }
 
     /**
-     * Returns a summary list of all levels up to [TOTAL_LEVELS].
+     * Returns a summary list of all available levels.
      */
     fun getLevelSummaries(): List<LevelSummary> {
-        return (1..TOTAL_LEVELS).map { id ->
+        val total = totalLevelsCount
+        return (1..total).map { id ->
             val lvl = getLevel(id)
             LevelSummary(
                 id = id,

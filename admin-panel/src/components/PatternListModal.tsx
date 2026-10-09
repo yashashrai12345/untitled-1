@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CustomPatternRecord } from '../types/game';
-import { Edit3, Trash2, CheckCircle2, FileText, Send, Layers } from 'lucide-react';
+import { Edit3, Trash2, CheckCircle2, FileText, Send, Layers, Hash } from 'lucide-react';
+import { deletePatternViaApi } from '../lib/supabase';
 
 interface PatternListModalProps {
   patterns: CustomPatternRecord[];
@@ -17,11 +18,35 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
   onDeletePattern,
   onPublishPattern,
 }) => {
-  const filtered = patterns.filter((p) => {
-    if (filterStatus === 'draft') return p.status === 'draft';
-    if (filterStatus === 'published') return p.status === 'published';
-    return true;
-  });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const filtered = [...patterns]
+    .filter((p) => {
+      if (filterStatus === 'draft') return p.status === 'draft';
+      if (filterStatus === 'published') return p.status === 'published';
+      return true;
+    })
+    .sort((a, b) => (a.level_number || 1) - (b.level_number || 1));
+
+  const handleDelete = async (item: CustomPatternRecord) => {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+
+    setDeletingId(item.id);
+
+    if (item.status === 'published') {
+      const secret = prompt('Enter ADMIN_PUBLISH_SECRET to confirm deletion (leave empty if unconfigured):') || '';
+      const result = await deletePatternViaApi(item.id, secret);
+      if (result.success) {
+        onDeletePattern(item.id);
+      } else {
+        alert(result.message || 'Failed to delete pattern.');
+      }
+    } else {
+      onDeletePattern(item.id);
+    }
+
+    setDeletingId(null);
+  };
 
   return (
     <div className="flex-1 bg-slate-950 p-8 overflow-y-auto select-none">
@@ -30,10 +55,10 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
           <div>
             <h2 className="text-xl font-bold text-white flex items-center space-x-2">
               <Layers className="w-5 h-5 text-indigo-400" />
-              <span>Pattern Library</span>
+              <span>Pattern Library & Level Progression</span>
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Manage custom puzzle patterns, drafts, and published levels.
+              Manage and arrange custom puzzle patterns according to their level order position.
             </p>
           </div>
           <span className="text-xs bg-slate-800 text-slate-300 font-mono px-3 py-1 rounded-full border border-slate-700">
@@ -48,14 +73,21 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((item) => (
+            {filtered.map((item, index) => (
               <div
                 key={item.id}
                 className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-5 space-y-4 transition-all hover:shadow-xl relative flex flex-col justify-between"
               >
                 <div className="space-y-2">
                   <div className="flex items-start justify-between">
-                    <h3 className="font-bold text-white text-base truncate pr-2">{item.name}</h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="bg-indigo-600/30 text-indigo-300 text-xs font-mono font-bold px-2 py-0.5 rounded border border-indigo-500/30 flex items-center space-x-1">
+                        <Hash className="w-3 h-3" />
+                        <span>Lvl {item.level_number || index + 1}</span>
+                      </span>
+                      <h3 className="font-bold text-white text-base truncate max-w-[140px]">{item.name}</h3>
+                    </div>
+
                     {item.status === 'published' ? (
                       <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1 border border-emerald-500/30">
                         <CheckCircle2 className="w-3 h-3" />
@@ -70,7 +102,7 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
                   </div>
 
                   <p className="text-xs text-slate-400 line-clamp-2 min-h-[2rem]">
-                    {item.description || 'Handcrafted custom puzzle pattern'}
+                    {item.description || `Handcrafted Level ${item.level_number || index + 1}`}
                   </p>
                 </div>
 
@@ -82,7 +114,7 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
                     </div>
                     <div>
                       <span className="text-slate-500 block text-[9px]">ARROWS</span>
-                      <span className="font-bold text-white">{item.level_data.arrows?.length || 0}</span>
+                      <span className="font-bold text-white">{item.level_data?.arrows?.length || 0}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 block text-[9px]">DIFF</span>
@@ -110,8 +142,9 @@ export const PatternListModal: React.FC<PatternListModalProps> = ({
                     )}
 
                     <button
-                      onClick={() => onDeletePattern(item.id)}
-                      className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/30"
+                      onClick={() => handleDelete(item)}
+                      disabled={deletingId === item.id}
+                      className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/30 disabled:opacity-40"
                       title="Delete Pattern"
                     >
                       <Trash2 className="w-4 h-4" />

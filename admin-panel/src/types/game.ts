@@ -26,6 +26,7 @@ export interface Level {
   patternType: string;
   seed: number;
   difficultyScore: number;
+  level_number?: number;
 }
 
 export type PatternStatus = 'draft' | 'published';
@@ -41,6 +42,7 @@ export interface CustomPatternRecord {
   difficulty: number;
   status: PatternStatus;
   version: number;
+  level_number?: number;
   created_at?: string;
   updated_at?: string;
   published_at?: string | null;

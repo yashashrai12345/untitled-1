@@ -32,7 +32,7 @@ app.get('/api/public/patterns', async (req, res) => {
       .from('custom_patterns')
       .select('*')
       .eq('status', 'published')
-      .order('published_at', { ascending: false });
+      .order('level_number', { ascending: true });
 
     if (error) {
       console.error('Supabase fetch error:', error);
@@ -49,7 +49,6 @@ app.get('/api/public/patterns', async (req, res) => {
 app.post('/api/publish', async (req, res) => {
   const requestSecret = req.headers['x-admin-secret'];
 
-  // Check admin publish secret if configured on server
   if (ADMIN_PUBLISH_SECRET && ADMIN_PUBLISH_SECRET.trim() !== '') {
     if (requestSecret !== ADMIN_PUBLISH_SECRET) {
       return res.status(401).json({ success: false, message: 'Invalid admin publishing secret' });
@@ -60,7 +59,7 @@ app.post('/api/publish', async (req, res) => {
     return res.status(503).json({ success: false, message: 'Database client not connected' });
   }
 
-  const { name, description, width, height, level_data, difficulty, status } = req.body;
+  const { name, description, width, height, level_data, difficulty, status, level_number } = req.body;
 
   if (!level_data || !level_data.arrows || level_data.arrows.length === 0) {
     return res.status(400).json({ success: false, message: 'Invalid pattern: level_data contains no arrows' });
@@ -75,6 +74,7 @@ app.post('/api/publish', async (req, res) => {
       level_data: level_data,
       difficulty: difficulty || level_data.difficulty || 2,
       status: status || 'published',
+      level_number: level_number || level_data.level_number || 1,
       version: 1,
       published_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -93,6 +93,42 @@ app.post('/api/publish', async (req, res) => {
     res.json({ success: true, data: data ? data[0] : null, message: 'Pattern published successfully' });
   } catch (err) {
     console.error('Publish handler exception:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Secure Deletion Endpoint
+app.post('/api/delete', async (req, res) => {
+  const requestSecret = req.headers['x-admin-secret'];
+
+  if (ADMIN_PUBLISH_SECRET && ADMIN_PUBLISH_SECRET.trim() !== '') {
+    if (requestSecret !== ADMIN_PUBLISH_SECRET) {
+      return res.status(401).json({ success: false, message: 'Invalid admin publishing secret' });
+    }
+  }
+
+  if (!supabase) {
+    return res.status(503).json({ success: false, message: 'Database client not connected' });
+  }
+
+  const { id } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ success: false, message: 'Pattern ID is required' });
+  }
+
+  try {
+    const { error } = await supabase
+      .from('custom_patterns')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+
+    res.json({ success: true, message: 'Pattern deleted successfully' });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });

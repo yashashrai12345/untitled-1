@@ -23,7 +23,7 @@ export async function fetchPublishedPatterns(): Promise<CustomPatternRecord[]> {
     .from('custom_patterns')
     .select('*')
     .eq('status', 'published')
-    .order('published_at', { ascending: false });
+    .order('level_number', { ascending: true });
 
   if (error) {
     console.error('Error fetching published patterns:', error);
@@ -71,5 +71,31 @@ export async function publishPatternViaApi(
     return result;
   } catch (err: any) {
     return { success: false, message: err.message || 'Network error publishing pattern' };
+  }
+}
+
+export async function deletePatternViaApi(
+  id: string,
+  publishSecret: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const response = await fetch('/api/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': publishSecret,
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (err: any) {
+    // Fallback to direct client delete if configured
+    if (supabaseUrl && supabaseAnonKey) {
+      const { error } = await supabase.from('custom_patterns').delete().eq('id', id);
+      if (!error) return { success: true };
+    }
+    return { success: false, message: err.message || 'Failed to delete pattern' };
   }
 }

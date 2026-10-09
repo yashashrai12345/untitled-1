@@ -65,7 +65,7 @@ fun LevelSelectScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val totalLevels = LevelRepository.TOTAL_LEVELS
+    val totalLevels = LevelRepository.totalLevelsCount
     val highestUnlocked = preferences.highestUnlockedLevel
     val currentLevel = preferences.currentLevel
 

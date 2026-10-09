@@ -4,6 +4,7 @@
   "rewrites": [
     { "source": "/api/public/patterns", "destination": "/api/public/patterns" },
     { "source": "/api/publish", "destination": "/api/publish" },
+    { "source": "/api/delete", "destination": "/api/delete" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

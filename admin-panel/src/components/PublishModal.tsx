@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Key, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Send, Key, AlertCircle, CheckCircle, X, Hash } from 'lucide-react';
 import { publishPatternViaApi } from '../lib/supabase';
 import { CustomPatternRecord, Level } from '../types/game';
 
@@ -10,6 +10,7 @@ interface PublishModalProps {
   description: string;
   difficulty: number;
   onPublishedSuccess: () => void;
+  defaultLevelNumber?: number;
 }
 
 export const PublishModal: React.FC<PublishModalProps> = ({
@@ -19,7 +20,9 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   description,
   difficulty,
   onPublishedSuccess,
+  defaultLevelNumber = 1,
 }) => {
+  const [levelNumber, setLevelNumber] = useState<number>(defaultLevelNumber);
   const [publishSecret, setPublishSecret] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -33,13 +36,14 @@ export const PublishModal: React.FC<PublishModalProps> = ({
     setSuccessMsg(null);
 
     const payload: Partial<CustomPatternRecord> = {
-      name: level.name || 'Untitled Custom Level',
+      name: level.name || `Level ${levelNumber}`,
       description,
       width: level.board.width,
       height: level.board.height,
-      level_data: level,
+      level_data: { ...level, level_number: levelNumber },
       difficulty,
       status: 'published',
+      level_number: levelNumber,
       version: 1,
     };
 
@@ -48,7 +52,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
     setIsSubmitting(false);
 
     if (result.success) {
-      setSuccessMsg('Pattern published successfully! Available live in Android app.');
+      setSuccessMsg(`Level ${levelNumber} published successfully! Available live in Android app.`);
       setTimeout(() => {
         onPublishedSuccess();
         onClose();
@@ -79,6 +83,24 @@ export const PublishModal: React.FC<PublishModalProps> = ({
         </div>
 
         <div className="space-y-3 bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 text-xs">
+          <div className="flex justify-between items-center">
+            <span className="text-slate-400 font-semibold flex items-center space-x-1">
+              <Hash className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Level Order Position:</span>
+            </span>
+            <div className="flex items-center space-x-2">
+              <span className="text-slate-400">Level</span>
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={levelNumber}
+                onChange={(e) => setLevelNumber(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-16 bg-slate-800 border border-slate-700 text-center rounded-md text-white font-bold py-1 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
           <div className="flex justify-between">
             <span className="text-slate-500">Pattern Name:</span>
             <span className="font-bold text-white">{level.name}</span>
@@ -140,7 +162,7 @@ export const PublishModal: React.FC<PublishModalProps> = ({
             disabled={isSubmitting}
             className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 disabled:opacity-50"
           >
-            {isSubmitting ? 'Publishing...' : 'Publish Level'}
+            {isSubmitting ? 'Publishing...' : `Publish as Level ${levelNumber}`}
           </button>
         </div>
       </div>
