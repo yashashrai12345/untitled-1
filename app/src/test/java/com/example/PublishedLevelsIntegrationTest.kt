@@ -29,6 +29,21 @@ class PublishedLevelsIntegrationTest {
     }
 
     @Test
+    fun testLevelRepositoryHas100CampaignLevels() {
+        val total = com.example.data.repository.LevelRepository.TOTAL_CAMPAIGN_LEVELS
+        assertEquals(100, total)
+        val level1 = com.example.data.repository.LevelRepository.getCampaignLevel(1)
+        assertNotNull(level1)
+        assertEquals(1, level1.id)
+        assertTrue(level1.arrows.isNotEmpty())
+
+        val level100 = com.example.data.repository.LevelRepository.getCampaignLevel(100)
+        assertNotNull(level100)
+        assertEquals(100, level100.id)
+        assertTrue(level100.arrows.isNotEmpty())
+    }
+
+    @Test
     fun testSequentialLevelNumbering() {
         val levels = listOf(
             Level(id = 1, name = "Level 1", board = Board(5, 5), arrows = listOf(Arrow("a1", Direction.RIGHT, listOf(GridPoint(1, 1), GridPoint(3, 1))))),

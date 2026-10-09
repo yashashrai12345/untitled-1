@@ -40,7 +40,6 @@ class GamePreferences(context: Context) {
         get() = prefs.getBoolean(KEY_SOUND_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_SOUND_ENABLED, value).apply()
 
-
     var isHapticsEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTICS_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_HAPTICS_ENABLED, value).apply()

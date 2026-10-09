@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -36,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.persistence.GamePreferences
@@ -46,7 +44,6 @@ import com.example.ui.theme.ArrowBackgroundAlt
 import com.example.ui.theme.ArrowNavy
 import com.example.ui.theme.HeartInactive
 import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
 
 @Composable
 fun LevelSelectScreen(
@@ -55,7 +52,7 @@ fun LevelSelectScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val totalLevels = LevelRepository.totalLevelsCount
+    val totalLevels = LevelRepository.TOTAL_CAMPAIGN_LEVELS
     val highestUnlocked = preferences.highestUnlockedLevel
     val currentLevel = preferences.currentLevel
 
@@ -98,84 +95,36 @@ fun LevelSelectScreen(
                 )
             }
 
-            if (totalLevels == 0) {
-                // Clean Empty State Screen
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = ArrowBackgroundAlt),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = ArrowNavy,
-                                modifier = Modifier.size(48.dp)
-                            )
+            Spacer(modifier = Modifier.height(8.dp))
 
-                            Spacer(modifier = Modifier.height(16.dp))
+            // Grid of 100 Campaign Levels
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("level_grid")
+            ) {
+                items(totalLevels) { index ->
+                    val levelId = index + 1
+                    val isUnlocked = levelId <= highestUnlocked
+                    val isCurrent = levelId == currentLevel
+                    val stars = preferences.getStarsForLevel(levelId)
 
-                            Text(
-                                text = "No Levels Available",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
-                                textAlign = TextAlign.Center
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = "No published levels available yet. Please check back later or publish levels from the Admin Panel!",
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            } else {
-                // Grid of Published Levels (Level 1, Level 2, Level 3...)
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    contentPadding = PaddingValues(vertical = 12.dp, horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("level_grid")
-                ) {
-                    items(totalLevels) { index ->
-                        val levelId = index + 1
-                        val isUnlocked = levelId <= highestUnlocked
-                        val isCurrent = levelId == currentLevel
-                        val stars = preferences.getStarsForLevel(levelId)
-
-                        LevelCardItem(
-                            levelId = levelId,
-                            displayName = "$levelId",
-                            isUnlocked = isUnlocked,
-                            isCurrent = isCurrent,
-                            stars = stars,
-                            onClick = {
-                                if (isUnlocked) {
-                                    onLevelSelected(levelId)
-                                }
+                    LevelCardItem(
+                        levelId = levelId,
+                        displayName = "$levelId",
+                        isUnlocked = isUnlocked,
+                        isCurrent = isCurrent,
+                        stars = stars,
+                        onClick = {
+                            if (isUnlocked) {
+                                onLevelSelected(levelId)
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
         }

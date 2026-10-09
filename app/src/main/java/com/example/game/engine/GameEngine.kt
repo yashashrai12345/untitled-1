@@ -48,7 +48,7 @@ class GameEngine(
     private fun createInitialState(levelId: Int): GameState {
         val total = LevelRepository.totalLevelsCount
         val validId = if (total > 0) levelId.coerceIn(1, total) else 1
-        val level = LevelRepository.getLevel(validId) ?: createEmptyPlaceholderLevel()
+        val level = LevelRepository.getLevel(validId)
 
         return GameState(
             sessionId = sessionCounter++,
@@ -92,7 +92,7 @@ class GameEngine(
 
         val total = LevelRepository.totalLevelsCount
         val validId = if (total > 0) levelId.coerceIn(1, total) else 1
-        val level = LevelRepository.getLevel(validId) ?: createEmptyPlaceholderLevel()
+        val level = LevelRepository.getLevel(validId)
 
         preferences.currentLevel = validId
 

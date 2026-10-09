@@ -182,6 +182,8 @@ fun SettingsScreen(
                 }
             }
 
+
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Danger Zone Card

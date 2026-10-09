@@ -16,8 +16,3 @@
 local.properties
 .env
 debug.keystore
-
-# Node / Web Admin Panel
-admin-panel/node_modules/
-admin-panel/dist/
-admin-panel/.env
